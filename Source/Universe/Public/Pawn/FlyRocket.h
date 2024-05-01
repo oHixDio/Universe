@@ -26,80 +26,103 @@ private:
 		LOW,NORMAL,HIGH,
 	};
 
-protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component)
+private:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USceneComponent> BodyRoot{ nullptr };
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStaticMeshComponent> BodyFirst{ nullptr };
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStaticMeshComponent> BodySecond{ nullptr };
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStaticMeshComponent> BodyThird{ nullptr };
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCapsuleComponent> CollisionComponent{ nullptr };
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UArrowComponent> DebugRightArrow{ nullptr };
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UArrowComponent> DebugLeftArrow{ nullptr };
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USpringArmComponent> CameraBoom{ nullptr };
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCameraComponent> FollowCamera{ nullptr };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputMappingContext> FlyRocketMappingContext{ nullptr };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> HorizontalAction{ nullptr };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> GearChangeAction{ nullptr };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Advance", meta = (AllowPrivateAccess = "true"))
 	float AdvanceSpeed{ 100.0f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal", meta = (AllowPrivateAccess = "true"))
 	float HorizontalSpeed{ 100.0f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float HorizontalSpeedRate{ 1.0f };
 
-	float HorizSpeedRateMax{ 1.0f };
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal", meta = (ClampMin = "0.0", ClampMax = "1.0"), meta = (AllowPrivateAccess = "true"))
+	float HorizSpeedRateMin{ 0.8f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal", meta = (ClampMin = "0.0", ClampMax = "1.0"))
-	float HorizSpeedRateMin{ 0.5f };
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal", meta = (AllowPrivateAccess = "true"))
 	float HorizontalOffsetMaxLimit{ 550.0f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal", meta = (AllowPrivateAccess = "true"))
 	float HorizontalOffsetMinLimit{ -550.0f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float GearSpeedRate{ 1.0f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear", meta = (AllowPrivateAccess = "true"))
 	float GearSpeedRateInLow{ 0.8f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear", meta = (AllowPrivateAccess = "true"))
 	float GearSpeedRateInNormal{ 1.0f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear", meta = (AllowPrivateAccess = "true"))
 	float GearSpeedRateInHigh{ 1.2f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float StunSpeedRate{ 1.0f };
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = State)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Stun", meta = (AllowPrivateAccess = "true"))
+	float StunDuration{ 0.3f };
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Stun", meta = (AllowPrivateAccess = "true"))
+	float StunRecoveryDuration{ 2.0f };
+
+	float SpeedUpRate{ 1.0f };
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | SpeedUp", meta = (AllowPrivateAccess = "true"))
+	float SpeedUpRateMax{ 1.2f };
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | SpeedUp", meta = (AllowPrivateAccess = "true"))
+	float SpeedUpRequiredTime{ 2.0f };
+
+	float SpeedUpJudgeTime{ 0.0f };
+
+	float DefaultRate{ 1.0f };
+
+	float UnderRate{ 0.0f };
+
+	FTimerHandle StunTimer;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = State, meta = (AllowPrivateAccess = "true"))
 	bool bIsMovingHorizontal{ false };
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = State, meta = (AllowPrivateAccess = "true"))
+	bool bIsStun{ false };
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = State, meta = (AllowPrivateAccess = "true"))
+	bool bIsSpeedUpMode{ false };
 
 	EGearState CurrentGear{ LOW };
 
@@ -130,6 +153,11 @@ private:
 	void MoveHorizontal(const FInputActionValue& Value);
 
 	/*
+		MoveHorizontalトリガー終了時の処理
+	*/
+	void ComplatedHorizontal();
+
+	/*
 		Gearを変える
 		アップダウンは、入力値の正負(真偽)で判定される。
 		SLAP:高水準
@@ -149,9 +177,23 @@ private:
 	void GearDown();
 
 	/*
-		MoveHorizontalトリガー終了時の処理
+		アステロイド衝突時、スタンを発生させ、一定秒数間スピードが0になる。
+		スタンタイムをスタートさせる。
+		SLAP:中水準
 	*/
-	void ComplatedHorizontal();
+	void Stun();
+
+	/*
+		スピードアップするかどうかを判定する
+		SLAP:中水準
+	*/
+	void JudgeSpeedUp();
+
+	/*
+		スピードアップモードを解除する
+		SLAP:中水準
+	*/
+	void ResetSpeedUpMode();
 
 	/*
 		水平移動レートを変動させる
@@ -170,4 +212,22 @@ private:
 		SLAP:低水準
 	*/
 	void VaryingHorizontalSpeedRate(const float DeltaTime);
+
+	/*
+		スタン速度レートを変動させる
+		SLAP:低水準
+	*/
+	void VaryingStunSpeedRate(const float DeltaTime);
+
+	/*
+		スピードアップレートを変動させる
+		SLAP:低水準
+	*/
+	void VaryingSpeedUpRate(const float DeltaTime);
+
+	/*
+		コリジョンのオーバーラップイベントにバインドする関数。
+	*/
+	UFUNCTION()
+	void OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 };

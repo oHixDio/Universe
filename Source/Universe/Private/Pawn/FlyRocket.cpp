@@ -45,6 +45,7 @@ AFlyRocket::AFlyRocket()
 	// CollisionComponent  初期設定
 	CollisionComponent = CreateDefaultSubobject<UCapsuleComponent>("Capcule Collision");
 	CollisionComponent->SetupAttachment(BodyRoot);
+	CollisionComponent->OnComponentBeginOverlap.AddDynamic(this, &AFlyRocket::OnBeginOverlap);
 
 	// SpringArm 初期設定
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -110,24 +111,32 @@ void AFlyRocket::Tick(float DeltaTime)
 
 void AFlyRocket::MoveAdvance(const float DeltaTime)
 {
-	float CurrentSpeed = AdvanceSpeed * GearSpeedRate * HorizontalSpeedRate * StunSpeedRate * DeltaTime;
+	float CurrentSpeed = AdvanceSpeed * GearSpeedRate * HorizontalSpeedRate * StunSpeedRate * SpeedUpRate * DeltaTime;
 
 	// 現在の位置からZ方向に進行
 	FVector AddLocation = FVector(0.0f, 0.0f, CurrentSpeed);
 	
 	AddActorWorldOffset(AddLocation);
 
+	JudgeSpeedUp();
+
 	UKismetSystemLibrary::PrintString(this, FString::SanitizeFloat(CurrentSpeed), true, true, FColor::Red,2.0f,FName("Speed"));
 }
 
 void AFlyRocket::MoveHorizontal(const FInputActionValue& Value)
 {
+	// Stun状態は横移動できない
+	if (bIsStun)
+	{
+		return;
+	}
+
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
 	float DeltaTime = GetWorld()->GetDeltaSeconds();
 
 	// 継続入力で水平移動速度上昇
-	float AddY = MovementVector.Y * HorizontalSpeed * UKismetMathLibrary::SafeDivide(HorizSpeedRateMax, HorizontalSpeedRate) * DeltaTime;
+	float AddY = MovementVector.Y * HorizontalSpeed * UKismetMathLibrary::SafeDivide(DefaultRate, HorizontalSpeedRate) * DeltaTime;
 
 	FVector AddLocation = FVector(0.0f, AddY, 0.0f);
 
@@ -138,6 +147,7 @@ void AFlyRocket::MoveHorizontal(const FInputActionValue& Value)
 	{
 		BodyRoot->AddLocalOffset(AddLocation);
 		bIsMovingHorizontal = true;
+		ResetSpeedUpMode();
 	}
 }
 
@@ -217,11 +227,60 @@ void AFlyRocket::ComplatedHorizontal()
 	bIsMovingHorizontal = false;
 }
 
+void AFlyRocket::Stun()
+{
+	bIsStun = true;
+
+	ResetSpeedUpMode();
+
+	GetWorld()->GetTimerManager().ClearTimer(StunTimer);
+
+	GetWorld()->GetTimerManager().SetTimer
+	(
+		StunTimer,
+		[&]()
+		{
+			bIsStun = false;
+		},
+		StunDuration,
+		false
+	);
+}
+
+void AFlyRocket::JudgeSpeedUp()
+{
+	if (bIsSpeedUpMode || HorizontalSpeedRate != DefaultRate || StunSpeedRate != DefaultRate)
+	{
+		return;
+	}
+
+	float DeltaTime = GetWorld()->GetDeltaSeconds();
+
+	SpeedUpJudgeTime += UKismetMathLibrary::SafeDivide(DeltaTime, SpeedUpRequiredTime);
+
+	if (SpeedUpJudgeTime >= SpeedUpRequiredTime)
+	{
+		bIsSpeedUpMode = true;
+	}
+}
+
+void AFlyRocket::ResetSpeedUpMode()
+{
+	SpeedUpJudgeTime = 0.0f;
+	bIsSpeedUpMode = false;
+}
+
 void AFlyRocket::VaryingRates(const float DeltaTime)
 {
 	VaryingHorizontalSpeedRate(DeltaTime);
 
 	VaryingGearSpeedRate(DeltaTime);
+
+	VaryingStunSpeedRate(DeltaTime);
+
+	VaryingSpeedUpRate(DeltaTime);
+
+	UKismetSystemLibrary::PrintString(this, bIsSpeedUpMode ? TEXT("SpeedUpModeTRUE") : TEXT("SpeedUpModeFALSE"), true, true, FColor::Red, 2.0f, FName("SpeedUpMode"));
 }
 
 void AFlyRocket::VaryingGearSpeedRate(const float DeltaTime)
@@ -275,11 +334,43 @@ void AFlyRocket::VaryingHorizontalSpeedRate(const float DeltaTime)
 	}
 	else
 	{
-		// Max値より高くならない
-		HorizontalSpeedRate = FMath::Min(HorizontalSpeedRate + DeltaTime, HorizSpeedRateMax);
+		// DefaultRate値より高くならない
+		HorizontalSpeedRate = FMath::Min(HorizontalSpeedRate + DeltaTime, DefaultRate);
 	}
 
 	// UKismetSystemLibrary::PrintString(this, FString::SanitizeFloat(HorizontalSpeedRate), true, true, FColor::Black, 2.0f, FName("Rate"));
+}
+
+void AFlyRocket::VaryingStunSpeedRate(const float DeltaTime)
+{
+	if (!bIsStun && StunSpeedRate < DefaultRate)
+	{
+		StunSpeedRate = FMath::Min(StunSpeedRate + UKismetMathLibrary::SafeDivide(DeltaTime, StunRecoveryDuration), DefaultRate);
+	}
+	else if (bIsStun && StunSpeedRate > UnderRate)
+	{
+		StunSpeedRate = FMath::Max(StunSpeedRate - UKismetMathLibrary::SafeDivide(DeltaTime, StunDuration), UnderRate);
+	}
+}
+
+void AFlyRocket::VaryingSpeedUpRate(const float DeltaTime)
+{
+	if (bIsSpeedUpMode)
+	{
+		SpeedUpRate = FMath::Min(SpeedUpRate + DeltaTime, SpeedUpRateMax);
+	}
+	else
+	{
+		SpeedUpRate = FMath::Max(SpeedUpRate - DeltaTime, DefaultRate);
+	}
+}
+
+void AFlyRocket::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (!bIsStun)
+	{
+		Stun();
+	}
 }
 
 
