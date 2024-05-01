@@ -93,6 +93,8 @@ void AFlyRocket::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 	{
 		EnhancedInputComponent->BindAction(HorizontalAction, ETriggerEvent::Triggered, this, &AFlyRocket::MoveHorizontal);
 		EnhancedInputComponent->BindAction(HorizontalAction, ETriggerEvent::Completed, this, &AFlyRocket::ComplatedHorizontal);
+
+		EnhancedInputComponent->BindAction(GearChangeAction, ETriggerEvent::Triggered, this, &AFlyRocket::GearChange);
 	}
 }
 
@@ -103,15 +105,19 @@ void AFlyRocket::Tick(float DeltaTime)
 	MoveAdvance(DeltaTime);
 
 	VaryingRates(DeltaTime);
+
 }
 
 void AFlyRocket::MoveAdvance(const float DeltaTime)
 {
 	float CurrentSpeed = AdvanceSpeed * GearSpeedRate * HorizontalSpeedRate * StunSpeedRate * DeltaTime;
+
 	// 現在の位置からZ方向に進行
-	FVector MovedLocation = FVector(0.0f, 0.0f, CurrentSpeed) + GetActorLocation();
+	FVector AddLocation = FVector(0.0f, 0.0f, CurrentSpeed);
 	
-	SetActorLocation(MovedLocation);
+	AddActorWorldOffset(AddLocation);
+
+	UKismetSystemLibrary::PrintString(this, FString::SanitizeFloat(CurrentSpeed), true, true, FColor::Red,2.0f,FName("Speed"));
 }
 
 void AFlyRocket::MoveHorizontal(const FInputActionValue& Value)
@@ -119,9 +125,12 @@ void AFlyRocket::MoveHorizontal(const FInputActionValue& Value)
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
 	float DeltaTime = GetWorld()->GetDeltaSeconds();
+
 	// 継続入力で水平移動速度上昇
 	float AddY = MovementVector.Y * HorizontalSpeed * UKismetMathLibrary::SafeDivide(HorizSpeedRateMax, HorizontalSpeedRate) * DeltaTime;
+
 	FVector AddLocation = FVector(0.0f, AddY, 0.0f);
+
 	FVector MovedLocation = BodyRoot->GetRelativeLocation() + AddLocation;
 
 	// MoveLimit範囲内ならば動く
@@ -130,8 +139,77 @@ void AFlyRocket::MoveHorizontal(const FInputActionValue& Value)
 		BodyRoot->AddLocalOffset(AddLocation);
 		bIsMovingHorizontal = true;
 	}
+}
 
-	// UKismetSystemLibrary::PrintString(this, FString::SanitizeFloat((HorizSpeedRateMax / HorizontalSpeedRate)), true, true, FColor::Red,2.0f,FName("Speed"));
+void AFlyRocket::GearChange(const FInputActionValue& Value)
+{
+	// ユーザーから正か負の入力を受け取る
+	float PositiveOrNegative = Value.Get<float>();
+
+	if (PositiveOrNegative > 0)
+	{
+		GearUp();
+	}
+	else
+	{
+		GearDown();
+	}
+
+	UKismetSystemLibrary::PrintString(this, PositiveOrNegative > 0 ? TEXT("Up") : TEXT("Down"), true, true, FColor::Black, 2.0f, FName("Action"));
+
+	switch (CurrentGear)
+	{
+	case AFlyRocket::LOW:
+		UKismetSystemLibrary::PrintString(this, TEXT("LOW"), true, true, FColor::Blue, 2.0f, FName("Gear"));
+		break;
+	case AFlyRocket::NORMAL:
+		UKismetSystemLibrary::PrintString(this, TEXT("NORMAL"), true, true, FColor::Blue, 2.0f, FName("Gear"));
+		break;
+	case AFlyRocket::HIGH:
+		UKismetSystemLibrary::PrintString(this, TEXT("HIGH"), true, true, FColor::Blue, 2.0f, FName("Gear"));
+		break;
+	default:
+		/* 何も行わない */
+		break;
+	}
+}
+
+void AFlyRocket::GearUp()
+{
+	switch (CurrentGear)
+	{
+	case AFlyRocket::LOW:
+		CurrentGear = NORMAL;
+		break;
+	case AFlyRocket::NORMAL:
+		CurrentGear = HIGH;
+		break;
+	case AFlyRocket::HIGH:
+		/* 何も行わない */
+		break;
+	default:
+		/* 何も行わない */
+		break;
+	}
+}
+
+void AFlyRocket::GearDown()
+{
+	switch (CurrentGear)
+	{
+	case AFlyRocket::LOW:
+		/* 何も行わない */
+		break;
+	case AFlyRocket::NORMAL:
+		CurrentGear = LOW;
+		break;
+	case AFlyRocket::HIGH:
+		CurrentGear = NORMAL;
+		break;
+	default:
+		/* 何も行わない */
+		break;
+	}
 }
 
 void AFlyRocket::ComplatedHorizontal()
@@ -142,6 +220,50 @@ void AFlyRocket::ComplatedHorizontal()
 void AFlyRocket::VaryingRates(const float DeltaTime)
 {
 	VaryingHorizontalSpeedRate(DeltaTime);
+
+	VaryingGearSpeedRate(DeltaTime);
+}
+
+void AFlyRocket::VaryingGearSpeedRate(const float DeltaTime)
+{
+	float TargetRate = 0.0f;
+	
+	// 目標のレート値を決める
+	switch (CurrentGear)
+	{
+	case AFlyRocket::LOW:
+		TargetRate = GearSpeedRateInLow;
+		break;
+	case AFlyRocket::NORMAL:
+		TargetRate = GearSpeedRateInNormal;
+		break;
+	case AFlyRocket::HIGH:
+		TargetRate = GearSpeedRateInHigh;
+		break;
+	default:
+		UKismetSystemLibrary::PrintString(this, TEXT("Warning! The current state of the gear is out of whack. "), true, true, FColor::Red, 2.0f, FName("None"));
+		TargetRate = 0.0f;
+		break;
+	}
+
+	// 目標のレート値ならば終了
+	if (GearSpeedRate == TargetRate)
+	{
+		UKismetSystemLibrary::PrintString(this, FString::SanitizeFloat(GearSpeedRate), true, true, FColor::Yellow, 2.0f, FName("GearSpeedRate"));
+		return;
+	}
+
+	// 目標のレート値になるようデルタタイムを加減算
+	if (GearSpeedRate < TargetRate)
+	{
+		GearSpeedRate = FMath::Min(GearSpeedRate + DeltaTime, TargetRate);
+	}
+	else
+	{
+		GearSpeedRate = FMath::Max(GearSpeedRate - DeltaTime, TargetRate);
+	}
+
+	UKismetSystemLibrary::PrintString(this, FString::SanitizeFloat(GearSpeedRate), true, true, FColor::Yellow, 2.0f, FName("GearSpeedRate"));
 }
 
 void AFlyRocket::VaryingHorizontalSpeedRate(const float DeltaTime)
