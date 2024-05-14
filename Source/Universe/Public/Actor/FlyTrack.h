@@ -6,25 +6,28 @@
 #include "GameFramework/Actor.h"
 #include "FlyTrack.generated.h"
 
+class UFlyRocketASPDataAsset;
+
 USTRUCT(Blueprintable)
-struct FAsteroidSpawnPattern
+struct FTrackUpdateInfo
 {
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	bool bFirst{ false };
+	TSoftObjectPtr<UFlyRocketASPDataAsset> AsteroidSpawnPattenData;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	bool bSecond{ false };
+	TSubclassOf<AActor> SpawnAsteroidClass{ nullptr };
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	bool bThird{ false };
+	float SpawnOffsetZ{ 1000.0f };
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	bool bFourth{ false };
+	float SpawnOffsetY{ 200.0f };
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	bool bFifth{ false };
+	int32 DefaultSpawnAmount{ 100 };
+
 };
 
 UCLASS()
@@ -36,23 +39,11 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USceneComponent> StartPoint{ nullptr };
 
-	UPROPERTY(BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<APawn> FlyRocket{ nullptr };
 
-	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
-	uint8 TrackNumber{ 0 };
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
-	TArray<FAsteroidSpawnPattern> AsteroidSpawnPatternList;
-	
-	// このゲームは4体のポーンが生成される。
-	// 生成されたポーンはGMBが管理する
-	// TrackNumberに対応するPawnをGMBから取得する
-
-	// Rocket取得方法について考える
-	// １、取得できるまでGMBに問い合わせを続ける　×
-	// ２、一定時間後、取得を問い合わせる。　一番雑な実装方法か？
-	// ３、取得フローを組み立てる　結合度を高める
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
+	FTrackUpdateInfo TrackUpdateInfo;
 
 public:	
 	AFlyTrack();
@@ -60,4 +51,14 @@ public:
 	virtual void Tick(float DeltaTime) override;
 protected:
 	virtual void BeginPlay() override;
+
+private:
+	/*
+		FTrackUpdateInfoの情報を元に、小惑星を生成するメンバ関数
+		TUIはBPに公開しており、Editor上で編集することが可能。
+		生成する小惑星クラスを指定していない場合、この関数は何もしない。
+	*/
+	void UpdateTrack();
 };
+
+

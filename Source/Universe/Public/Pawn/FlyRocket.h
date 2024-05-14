@@ -58,38 +58,141 @@ private:
 	TObjectPtr<UInputMappingContext> FlyRocketMappingContext{ nullptr };
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UInputAction> HorizontalAction{ nullptr };
+	TObjectPtr<UInputAction> MoveLeftAction{ nullptr };
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> MoveRightAction{ nullptr };
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> GearChangeAction{ nullptr };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Advance", meta = (AllowPrivateAccess = "true"))
-	float AdvanceSpeed{ 100.0f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal", meta = (AllowPrivateAccess = "true"))
+	/*
+		============================== Moveメンバ群 ==============================
+	*/
+	// ===== メンバフィールド ===== //
+private:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
+	bool bIsMoving{ false };
+
+	float DefaultRate{ 1.0f };
+
+	float UnderRate{ 0.0f };
+
+	// ===== メンバメソッド ===== //
+private:
+	/*
+		ロケットの移動状態を変更するメソッド
+	*/
+	void SetIsMoving(bool IsMoving);
+
+
+	/*
+		============================== Forwardメンバ群 ==============================
+	*/
+	// ===== メンバフィールド ===== //
+private:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Forward", meta = (AllowPrivateAccess = "true"))
+	float ForwardSpeed{ 100.0f };
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Forward", meta = (AllowPrivateAccess = "true"))
+	float ForwardAccelerationAmount{ 10.0f };
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Forward", meta = (AllowPrivateAccess = "true"))
+	float CurrentForwardAcceleration{ 0.0f };
+
+	// ===== メンバメソッド ===== //
+private:
+	/*
+		Z方向を前方とした前進移動を行う。
+		前進移動量はForwardSpeedに格納されている値により決定される
+
+		このメソッドはTickにて処理される
+	*/
+	void MoveForward(const float DeltaTime);
+
+	/*
+		前進移動を一定量加速させる。
+		加速させる量はForwardAccelerationAmountに格納されている値により決定する。
+	*/
+	void ForwardAccelerate();
+
+	/*
+		前進移動の加速合計値をリセットし、初期速度に戻す。
+	*/
+	void ResetForwardAccelerate();
+
+	/*
+	
+	*/
+	float GetAffectForwardSpeedRate();
+
+	/*
+		============================== Horizontalメンバ群 ==============================
+	*/
+private:
+	// ===== メンバフィールド ===== //
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Horizontal", meta = (AllowPrivateAccess = "true"))
 	float HorizontalSpeed{ 100.0f };
 
-	float HorizontalSpeedRate{ 1.0f };
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Horizontal", meta = (AllowPrivateAccess = "true"))
+	float HorizontalDecelerationRate{ 0.5f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal", meta = (ClampMin = "0.0", ClampMax = "1.0"), meta = (AllowPrivateAccess = "true"))
-	float HorizSpeedRateMin{ 0.8f };
+	float LeftRate{ 0.0f };
+
+	float RightRate{ 0.0f };
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Move | Horizontal", meta = (AllowPrivateAccess = "true"))
+	bool bIsLeftMoving{ false };
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Move | Horizontal", meta = (AllowPrivateAccess = "true"))
+	bool bIsRightMoving{ false };
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal", meta = (AllowPrivateAccess = "true"))
-	float HorizontalOffsetMaxLimit{ 550.0f };
+	float HorizontalMoveOffset{ 550.0f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal", meta = (AllowPrivateAccess = "true"))
-	float HorizontalOffsetMinLimit{ -550.0f };
+	// ===== メンバメソッド ===== //
+	/*
+		Y軸を基準とした水平移動を行う。
+		この関数は、Tick関数にて常に実行されているが、内部の値によっては移動を行わない。
+		この関数はTickにて処理される
+		SLAP:中水準
+	*/
+	void MoveHorizontal(const float DeltaTime);
 
-	float GearSpeedRate{ 1.0f };
+	/*
+	*/
+	void MoveLeft(const float Value);
+
+	/*
+	*/
+	void MoveRight(const float Value);
+
+	/*
+	*/
+	void UpdateHorizontalRate(float DeltaTime);
+
+	/*
+	*/
+	void ResetHorizontalRate();
+
+	float GearAcceleration{ 1.0f };
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear", meta = (AllowPrivateAccess = "true"))
-	float GearSpeedRateInLow{ 0.8f };
+	float GearAccelerationVaryingtime{ 0.5f };
+
+	EGearState CurrentGear{ LOW };
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear", meta = (AllowPrivateAccess = "true"))
-	float GearSpeedRateInNormal{ 1.0f };
+	float GearAccelerationInLow{ 0.8f };
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear", meta = (AllowPrivateAccess = "true"))
-	float GearSpeedRateInHigh{ 1.2f };
+	float GearAccelerationInNormal{ 1.0f };
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear", meta = (AllowPrivateAccess = "true"))
+	float GearAccelerationInHigh{ 1.2f };
+
 
 	float StunSpeedRate{ 1.0f };
 
@@ -109,22 +212,11 @@ private:
 
 	float SpeedUpJudgeTime{ 0.0f };
 
-	float DefaultRate{ 1.0f };
-
-	float UnderRate{ 0.0f };
-
 	FTimerHandle StunTimer;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = State, meta = (AllowPrivateAccess = "true"))
-	bool bIsMovingHorizontal{ false };
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = State, meta = (AllowPrivateAccess = "true"))
 	bool bIsStun{ false };
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = State, meta = (AllowPrivateAccess = "true"))
-	bool bIsSpeedUpMode{ false };
-
-	EGearState CurrentGear{ LOW };
 
 
 
@@ -140,29 +232,35 @@ protected:
 
 
 private:
-	/*
-		Z方向を前方とした、前進移動を行う。
-		SLAP:中水準
-	*/
-	void MoveAdvance(const float DeltaTime);
+	
+
 
 	/*
-		Y軸アナログ移動を入力で行う。
-		移動時、割合で減速する。
+		PlayerControllerの入力によって、機体を左に移動させる。
 	*/
-	void MoveHorizontal(const FInputActionValue& Value);
+	void NIMoveLeft(const FInputActionValue& Value);
 
 	/*
-		MoveHorizontalトリガー終了時の処理
+		PlayerControllerの入力によって、機体を右に移動させる。
 	*/
-	void ComplatedHorizontal();
+	void NIMoveRight(const FInputActionValue& Value);
+
+	/*
+		PlayerControllerによる左移動入力を終了したときに発行される
+	*/
+	void ComplatedMoveLeft();
+
+	/*
+		PlayerControllerによる右移動入力を終了したときに発行される
+	*/
+	void ComplatedMoveRight();
 
 	/*
 		Gearを変える
 		アップダウンは、入力値の正負(真偽)で判定される。
 		SLAP:高水準
 	*/
-	void GearChange(const FInputActionValue& Value);
+	void NIGearChange(const FInputActionValue& Value);
 
 	/*
 		Gearを上げる
@@ -184,46 +282,22 @@ private:
 	void Stun();
 
 	/*
-		スピードアップするかどうかを判定する
-		SLAP:中水準
-	*/
-	void JudgeSpeedUp();
-
-	/*
-		スピードアップモードを解除する
-		SLAP:中水準
-	*/
-	void ResetSpeedUpMode();
-
-	/*
 		水平移動レートを変動させる
 		SLAP:中水準
 	*/
-	void VaryingRates(const float DeltaTime);
+	void VaryingAccelerations(const float DeltaTime);
 
 	/*
 		ギア速度レートを変動させる
 		SLAP:低水準
 	*/
-	void VaryingGearSpeedRate(const float DeltaTime);
-
-	/*
-		水平移動レートを変動させる
-		SLAP:低水準
-	*/
-	void VaryingHorizontalSpeedRate(const float DeltaTime);
+	void VaryingGearAcceleration(const float DeltaTime);
 
 	/*
 		スタン速度レートを変動させる
 		SLAP:低水準
 	*/
 	void VaryingStunSpeedRate(const float DeltaTime);
-
-	/*
-		スピードアップレートを変動させる
-		SLAP:低水準
-	*/
-	void VaryingSpeedUpRate(const float DeltaTime);
 
 	/*
 		コリジョンのオーバーラップイベントにバインドする関数。

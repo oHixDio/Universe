@@ -14,6 +14,10 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
 
+
+// =========================================================================== デフォルトメソッド群 =========================================================================== //
+// ========================================================================================================================================================================== //
+
 /*
 * あくまでデフォルトの設定
 * この設定をデフォルトとし、エディタで変更が行われる。
@@ -59,13 +63,13 @@ AFlyRocket::AFlyRocket()
 	DebugRightArrow = CreateDefaultSubobject<UArrowComponent>("Arrow Right");
 	DebugRightArrow->SetupAttachment(RootComponent);
 	DebugRightArrow->SetWorldRotation(FRotator(0.0f, 90.0f, 0.0f));
-	DebugRightArrow->SetArrowLength(HorizontalOffsetMaxLimit);
+	DebugRightArrow->SetArrowLength(HorizontalMoveOffset);
 	DebugRightArrow->SetHiddenInGame(false);
 
 	DebugLeftArrow = CreateDefaultSubobject<UArrowComponent>("Arrow Left");
 	DebugLeftArrow->SetupAttachment(RootComponent);
 	DebugLeftArrow->SetWorldRotation(FRotator(0.0f, -90.0f, 0.0f));
-	DebugLeftArrow->SetArrowLength(HorizontalOffsetMaxLimit);
+	DebugLeftArrow->SetArrowLength(HorizontalMoveOffset);
 	DebugLeftArrow->SetHiddenInGame(false);
 
 	PrimaryActorTick.bCanEverTick = true;
@@ -75,7 +79,22 @@ AFlyRocket::AFlyRocket()
 void AFlyRocket::BeginPlay()
 {
 	Super::BeginPlay();
-	
+}
+
+void AFlyRocket::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) 
+	{
+		EnhancedInputComponent->BindAction(MoveLeftAction, ETriggerEvent::Triggered, this, &AFlyRocket::NIMoveLeft);
+		EnhancedInputComponent->BindAction(MoveLeftAction, ETriggerEvent::Completed, this, &AFlyRocket::ComplatedMoveLeft);
+		EnhancedInputComponent->BindAction(MoveRightAction, ETriggerEvent::Triggered, this, &AFlyRocket::NIMoveRight);
+		EnhancedInputComponent->BindAction(MoveRightAction, ETriggerEvent::Completed, this, &AFlyRocket::ComplatedMoveRight);
+
+		EnhancedInputComponent->BindAction(GearChangeAction, ETriggerEvent::Triggered, this, &AFlyRocket::NIGearChange);
+	}
+
 	// MappingContext setting
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
@@ -86,72 +105,136 @@ void AFlyRocket::BeginPlay()
 	}
 }
 
-void AFlyRocket::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) 
-	{
-		EnhancedInputComponent->BindAction(HorizontalAction, ETriggerEvent::Triggered, this, &AFlyRocket::MoveHorizontal);
-		EnhancedInputComponent->BindAction(HorizontalAction, ETriggerEvent::Completed, this, &AFlyRocket::ComplatedHorizontal);
-
-		EnhancedInputComponent->BindAction(GearChangeAction, ETriggerEvent::Triggered, this, &AFlyRocket::GearChange);
-	}
-}
-
 void AFlyRocket::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	MoveAdvance(DeltaTime);
-
-	VaryingRates(DeltaTime);
-
+	if (!bIsMoving)
+	{
+		MoveForward(DeltaTime);
+		MoveHorizontal(DeltaTime);
+	}
+	
 }
 
-void AFlyRocket::MoveAdvance(const float DeltaTime)
+
+// ============================================================================== 公開メソッド群 ============================================================================= //
+// ========================================================================================================================================================================== //
+
+
+// ============================================================================ Forwardメソッド群 ============================================================================ //
+// ========================================================================================================================================================================== //
+
+void AFlyRocket::SetIsMoving(bool IsMoving)
 {
-	float CurrentSpeed = AdvanceSpeed * GearSpeedRate * HorizontalSpeedRate * StunSpeedRate * SpeedUpRate * DeltaTime;
+	this->bIsMoving = IsMoving;
+}
+
+void AFlyRocket::MoveForward(const float DeltaTime)
+{
+	// 速度に影響する全ての割合値を算出
+	float CurrentSpeed = ((ForwardSpeed + CurrentForwardAcceleration) * DeltaTime) * GetAffectForwardSpeedRate();
 
 	// 現在の位置からZ方向に進行
 	FVector AddLocation = FVector(0.0f, 0.0f, CurrentSpeed);
 	
 	AddActorWorldOffset(AddLocation);
-
-	JudgeSpeedUp();
-
-	UKismetSystemLibrary::PrintString(this, FString::SanitizeFloat(CurrentSpeed), true, true, FColor::Red,2.0f,FName("Speed"));
 }
 
-void AFlyRocket::MoveHorizontal(const FInputActionValue& Value)
+void AFlyRocket::ForwardAccelerate()
 {
-	// Stun状態は横移動できない
-	if (bIsStun)
-	{
-		return;
-	}
+	CurrentForwardAcceleration += ForwardAccelerationAmount;
+}
 
-	FVector2D MovementVector = Value.Get<FVector2D>();
+void AFlyRocket::ResetForwardAccelerate()
+{
+	CurrentForwardAcceleration = 0.0f;
+}
 
-	float DeltaTime = GetWorld()->GetDeltaSeconds();
+float AFlyRocket::GetAffectForwardSpeedRate()
+{
+	return 1.0f;
+}
 
-	// 継続入力で水平移動速度上昇
-	float AddY = MovementVector.Y * HorizontalSpeed * UKismetMathLibrary::SafeDivide(DefaultRate, HorizontalSpeedRate) * DeltaTime;
 
+// =========================================================================== Horizontalメソッド群 =========================================================================== //
+// ========================================================================================================================================================================== //
+
+void AFlyRocket::MoveHorizontal(const float DeltaTime)
+{
+	// TODO スタン中は横移動しない。
+
+	float AddY = (RightRate - LeftRate) * HorizontalSpeed * DeltaTime;
 	FVector AddLocation = FVector(0.0f, AddY, 0.0f);
+	float MovedY = BodyRoot->GetRelativeLocation().Y + AddLocation.Y;
 
-	FVector MovedLocation = BodyRoot->GetRelativeLocation() + AddLocation;
+	UpdateHorizontalRate(DeltaTime);
 
-	// MoveLimit範囲内ならば動く
-	if (MovedLocation.Y < HorizontalOffsetMaxLimit && MovedLocation.Y > HorizontalOffsetMinLimit)
+	const float LEFT = -1.0f;
+	const float RIGHT = 1.0f;
+
+	// 移動可能範囲内ならば
+	if (LEFT * HorizontalMoveOffset < MovedY && MovedY < RIGHT * HorizontalMoveOffset)
 	{
 		BodyRoot->AddLocalOffset(AddLocation);
-		bIsMovingHorizontal = true;
-		ResetSpeedUpMode();
 	}
 }
 
-void AFlyRocket::GearChange(const FInputActionValue& Value)
+void AFlyRocket::MoveLeft(const float Value)
+{
+	LeftRate = FMath::Clamp(LeftRate + Value * GetWorld()->DeltaTimeSeconds, UnderRate, DefaultRate);
+}
+
+void AFlyRocket::MoveRight(const float Value)
+{
+	RightRate = FMath::Clamp(RightRate + Value * GetWorld()->DeltaTimeSeconds, UnderRate, DefaultRate);
+}
+
+void AFlyRocket::UpdateHorizontalRate(float DeltaTime)
+{
+	LeftRate = FMath::Clamp(LeftRate - HorizontalDecelerationRate * GetWorld()->DeltaTimeSeconds, UnderRate, DefaultRate);
+	RightRate = FMath::Clamp(RightRate - HorizontalDecelerationRate * GetWorld()->DeltaTimeSeconds, UnderRate, DefaultRate);
+}
+
+void AFlyRocket::ResetHorizontalRate()
+{
+	LeftRate = UnderRate;
+	RightRate = UnderRate;
+}
+
+void AFlyRocket::NIMoveLeft(const FInputActionValue& Value)
+{
+	float InputValue = Value.Get<float>();
+
+	if (!bIsRightMoving)
+	{
+		bIsLeftMoving = true;
+		MoveLeft(InputValue);
+	}
+}
+
+void AFlyRocket::NIMoveRight(const FInputActionValue& Value)
+{
+	float InputValue = Value.Get<float>();
+
+	if (!bIsLeftMoving)
+	{
+		bIsRightMoving = true;
+		MoveRight(InputValue);
+	}
+}
+
+void AFlyRocket::ComplatedMoveLeft()
+{
+	bIsLeftMoving = false;
+}
+
+void AFlyRocket::ComplatedMoveRight()
+{
+	bIsRightMoving = false;
+}
+
+void AFlyRocket::NIGearChange(const FInputActionValue& Value)
 {
 	// ユーザーから正か負の入力を受け取る
 	float PositiveOrNegative = Value.Get<float>();
@@ -164,8 +247,6 @@ void AFlyRocket::GearChange(const FInputActionValue& Value)
 	{
 		GearDown();
 	}
-
-	UKismetSystemLibrary::PrintString(this, PositiveOrNegative > 0 ? TEXT("Up") : TEXT("Down"), true, true, FColor::Black, 2.0f, FName("Action"));
 
 	switch (CurrentGear)
 	{
@@ -222,16 +303,9 @@ void AFlyRocket::GearDown()
 	}
 }
 
-void AFlyRocket::ComplatedHorizontal()
-{
-	bIsMovingHorizontal = false;
-}
-
 void AFlyRocket::Stun()
 {
 	bIsStun = true;
-
-	ResetSpeedUpMode();
 
 	GetWorld()->GetTimerManager().ClearTimer(StunTimer);
 
@@ -247,43 +321,14 @@ void AFlyRocket::Stun()
 	);
 }
 
-void AFlyRocket::JudgeSpeedUp()
+void AFlyRocket::VaryingAccelerations(const float DeltaTime)
 {
-	if (bIsSpeedUpMode || HorizontalSpeedRate != DefaultRate || StunSpeedRate != DefaultRate)
-	{
-		return;
-	}
-
-	float DeltaTime = GetWorld()->GetDeltaSeconds();
-
-	SpeedUpJudgeTime += UKismetMathLibrary::SafeDivide(DeltaTime, SpeedUpRequiredTime);
-
-	if (SpeedUpJudgeTime >= SpeedUpRequiredTime)
-	{
-		bIsSpeedUpMode = true;
-	}
-}
-
-void AFlyRocket::ResetSpeedUpMode()
-{
-	SpeedUpJudgeTime = 0.0f;
-	bIsSpeedUpMode = false;
-}
-
-void AFlyRocket::VaryingRates(const float DeltaTime)
-{
-	VaryingHorizontalSpeedRate(DeltaTime);
-
-	VaryingGearSpeedRate(DeltaTime);
+	VaryingGearAcceleration(DeltaTime);
 
 	VaryingStunSpeedRate(DeltaTime);
-
-	VaryingSpeedUpRate(DeltaTime);
-
-	UKismetSystemLibrary::PrintString(this, bIsSpeedUpMode ? TEXT("SpeedUpModeTRUE") : TEXT("SpeedUpModeFALSE"), true, true, FColor::Red, 2.0f, FName("SpeedUpMode"));
 }
 
-void AFlyRocket::VaryingGearSpeedRate(const float DeltaTime)
+void AFlyRocket::VaryingGearAcceleration(const float DeltaTime)
 {
 	float TargetRate = 0.0f;
 	
@@ -291,54 +336,35 @@ void AFlyRocket::VaryingGearSpeedRate(const float DeltaTime)
 	switch (CurrentGear)
 	{
 	case AFlyRocket::LOW:
-		TargetRate = GearSpeedRateInLow;
+		TargetRate = GearAccelerationInLow;
 		break;
 	case AFlyRocket::NORMAL:
-		TargetRate = GearSpeedRateInNormal;
+		TargetRate = GearAccelerationInNormal;
 		break;
 	case AFlyRocket::HIGH:
-		TargetRate = GearSpeedRateInHigh;
+		TargetRate = GearAccelerationInHigh;
 		break;
 	default:
-		UKismetSystemLibrary::PrintString(this, TEXT("Warning! The current state of the gear is out of whack. "), true, true, FColor::Red, 2.0f, FName("None"));
 		TargetRate = 0.0f;
 		break;
 	}
 
 	// 目標のレート値ならば終了
-	if (GearSpeedRate == TargetRate)
+	if (GearAcceleration == TargetRate)
 	{
-		UKismetSystemLibrary::PrintString(this, FString::SanitizeFloat(GearSpeedRate), true, true, FColor::Yellow, 2.0f, FName("GearSpeedRate"));
 		return;
 	}
 
 	// 目標のレート値になるようデルタタイムを加減算
-	if (GearSpeedRate < TargetRate)
+	const float VaryingAcceleration = UKismetMathLibrary::SafeDivide(DeltaTime, GearAccelerationVaryingtime);
+	if (GearAcceleration < TargetRate)
 	{
-		GearSpeedRate = FMath::Min(GearSpeedRate + DeltaTime, TargetRate);
+		GearAcceleration = FMath::Min(GearAcceleration + VaryingAcceleration, TargetRate);
 	}
 	else
 	{
-		GearSpeedRate = FMath::Max(GearSpeedRate - DeltaTime, TargetRate);
+		GearAcceleration = FMath::Max(GearAcceleration - VaryingAcceleration, TargetRate);
 	}
-
-	UKismetSystemLibrary::PrintString(this, FString::SanitizeFloat(GearSpeedRate), true, true, FColor::Yellow, 2.0f, FName("GearSpeedRate"));
-}
-
-void AFlyRocket::VaryingHorizontalSpeedRate(const float DeltaTime)
-{
-	if (bIsMovingHorizontal)
-	{
-		// Min値より低くならない。
-		HorizontalSpeedRate = FMath::Max(HorizontalSpeedRate - DeltaTime, HorizSpeedRateMin);
-	}
-	else
-	{
-		// DefaultRate値より高くならない
-		HorizontalSpeedRate = FMath::Min(HorizontalSpeedRate + DeltaTime, DefaultRate);
-	}
-
-	// UKismetSystemLibrary::PrintString(this, FString::SanitizeFloat(HorizontalSpeedRate), true, true, FColor::Black, 2.0f, FName("Rate"));
 }
 
 void AFlyRocket::VaryingStunSpeedRate(const float DeltaTime)
@@ -350,18 +376,6 @@ void AFlyRocket::VaryingStunSpeedRate(const float DeltaTime)
 	else if (bIsStun && StunSpeedRate > UnderRate)
 	{
 		StunSpeedRate = FMath::Max(StunSpeedRate - UKismetMathLibrary::SafeDivide(DeltaTime, StunDuration), UnderRate);
-	}
-}
-
-void AFlyRocket::VaryingSpeedUpRate(const float DeltaTime)
-{
-	if (bIsSpeedUpMode)
-	{
-		SpeedUpRate = FMath::Min(SpeedUpRate + DeltaTime, SpeedUpRateMax);
-	}
-	else
-	{
-		SpeedUpRate = FMath::Max(SpeedUpRate - DeltaTime, DefaultRate);
 	}
 }
 
