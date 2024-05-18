@@ -30,7 +30,7 @@ struct FTrackUpdateInfo
 
 };
 
-UCLASS()
+UCLASS(ABSTRACT)
 class UNIVERSE_API AFlyTrack : public AActor
 {
 	GENERATED_BODY()

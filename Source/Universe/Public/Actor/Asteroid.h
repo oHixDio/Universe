@@ -17,18 +17,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component)
 	TObjectPtr<UStaticMeshComponent> Mesh{ nullptr };
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component)
-	TObjectPtr<USphereComponent> CollisionArea{ nullptr };
-	
 public:	
 	AAsteroid();
 
 	virtual void Tick(float DeltaTime) override;
 protected:
 	virtual void BeginPlay() override;
-
-private:
-	UFUNCTION()
-	void OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
 };

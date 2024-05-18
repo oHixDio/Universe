@@ -15,7 +15,7 @@
 #include "Kismet/KismetMathLibrary.h"
 
 
-// =========================================================================== デフォルトメソッド群 =========================================================================== //
+// ================================================================================= Core群 ================================================================================= //
 // ========================================================================================================================================================================== //
 
 /*
@@ -87,10 +87,7 @@ void AFlyRocket::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) 
 	{
-		EnhancedInputComponent->BindAction(MoveLeftAction, ETriggerEvent::Triggered, this, &AFlyRocket::NIMoveLeft);
-		EnhancedInputComponent->BindAction(MoveLeftAction, ETriggerEvent::Completed, this, &AFlyRocket::ComplatedMoveLeft);
-		EnhancedInputComponent->BindAction(MoveRightAction, ETriggerEvent::Triggered, this, &AFlyRocket::NIMoveRight);
-		EnhancedInputComponent->BindAction(MoveRightAction, ETriggerEvent::Completed, this, &AFlyRocket::ComplatedMoveRight);
+		EnhancedInputComponent->BindAction(MoveHorizontalAction, ETriggerEvent::Triggered, this, &AFlyRocket::NIMoveHorizontal);
 
 		EnhancedInputComponent->BindAction(GearChangeAction, ETriggerEvent::Triggered, this, &AFlyRocket::NIGearChange);
 	}
@@ -114,7 +111,76 @@ void AFlyRocket::Tick(float DeltaTime)
 		MoveForward(DeltaTime);
 		MoveHorizontal(DeltaTime);
 	}
-	
+
+	if (bIsStunned)
+	{
+		UpdateStunRate(DeltaTime);
+	}
+
+	if (LeftRate + RightRate != UnderRate)
+	{
+		InertiaHorizontalRate(DeltaTime);
+	}
+
+	if (CurrentGearSpeed != TargetGearSpeed)
+	{
+		LerpGearSpeed(DeltaTime);
+	}
+}
+
+void AFlyRocket::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (!bIsStunned && OtherActor->ActorHasTag("Asteroid"))
+	{
+		Stun();
+		OtherActor->Destroy();
+	}
+}
+
+
+// ============================================================================= Inputメソッド群 ============================================================================= //
+// ========================================================================================================================================================================== //
+
+void AFlyRocket::NIMoveHorizontal(const FInputActionValue& Value)
+{
+	if (bIsStunned)
+	{
+		return;
+	}
+
+	// ユーザーから正数か負数の入力を受け取る
+	const float PositiveOrNegative = Value.Get<float>();
+
+	const float AbsInputValue = FMath::Abs(PositiveOrNegative);
+
+	if (PositiveOrNegative > 0)
+	{
+		MoveRight(AbsInputValue);
+	}
+	else
+	{
+		MoveLeft(AbsInputValue);
+	}
+}
+
+void AFlyRocket::NIGearChange(const FInputActionValue& Value)
+{
+	if (bIsStunned)
+	{
+		return;
+	}
+
+	// ユーザーから正数か負数の入力を受け取る
+	const float PositiveOrNegative = Value.Get<float>();
+
+	if (PositiveOrNegative > 0)
+	{
+		GearUp();
+	}
+	else
+	{
+		GearDown();
+	}
 }
 
 
@@ -127,13 +193,12 @@ void AFlyRocket::Tick(float DeltaTime)
 
 void AFlyRocket::SetIsMoving(bool IsMoving)
 {
-	this->bIsMoving = IsMoving;
+	bIsMoving = IsMoving;
 }
 
 void AFlyRocket::MoveForward(const float DeltaTime)
 {
-	// 速度に影響する全ての割合値を算出
-	float CurrentSpeed = ((ForwardSpeed + CurrentForwardAcceleration) * DeltaTime) * GetAffectForwardSpeedRate();
+	float CurrentSpeed = (ForwardSpeed + GetAffectForwardSpeed()) * CurrentStunRate * DeltaTime;
 
 	// 現在の位置からZ方向に進行
 	FVector AddLocation = FVector(0.0f, 0.0f, CurrentSpeed);
@@ -143,32 +208,32 @@ void AFlyRocket::MoveForward(const float DeltaTime)
 
 void AFlyRocket::ForwardAccelerate()
 {
-	CurrentForwardAcceleration += ForwardAccelerationAmount;
+	TotalForwardAdditionalSpeed += ForwardAdditionalSpeedAmount;
 }
 
 void AFlyRocket::ResetForwardAccelerate()
 {
-	CurrentForwardAcceleration = 0.0f;
+	TotalForwardAdditionalSpeed = 0.0f;
 }
 
-float AFlyRocket::GetAffectForwardSpeedRate()
+float AFlyRocket::GetAffectForwardSpeed()
 {
-	return 1.0f;
+	float AffectSpeed = CurrentGearSpeed + TotalForwardAdditionalSpeed;
+	return AffectSpeed;
 }
 
 
-// =========================================================================== Horizontalメソッド群 =========================================================================== //
+// ========================================================================== Horizontalメソッド群 =========================================================================== //
 // ========================================================================================================================================================================== //
 
 void AFlyRocket::MoveHorizontal(const float DeltaTime)
 {
 	// TODO スタン中は横移動しない。
 
+	// 左右の割合から、水平速度を算出(-Yが左のため、LeftRateを - の右側に配置)
 	float AddY = (RightRate - LeftRate) * HorizontalSpeed * DeltaTime;
 	FVector AddLocation = FVector(0.0f, AddY, 0.0f);
 	float MovedY = BodyRoot->GetRelativeLocation().Y + AddLocation.Y;
-
-	UpdateHorizontalRate(DeltaTime);
 
 	const float LEFT = -1.0f;
 	const float RIGHT = 1.0f;
@@ -182,18 +247,19 @@ void AFlyRocket::MoveHorizontal(const float DeltaTime)
 
 void AFlyRocket::MoveLeft(const float Value)
 {
-	LeftRate = FMath::Clamp(LeftRate + Value * GetWorld()->DeltaTimeSeconds, UnderRate, DefaultRate);
+	// Clamp  第一引数を、第二引数から第三引数の間で調整する
+	LeftRate = FMath::Clamp(LeftRate + Value * HorizontalAccelelerationRate * GetWorld()->DeltaTimeSeconds, UnderRate, TopRate);
 }
 
 void AFlyRocket::MoveRight(const float Value)
 {
-	RightRate = FMath::Clamp(RightRate + Value * GetWorld()->DeltaTimeSeconds, UnderRate, DefaultRate);
+	RightRate = FMath::Clamp(RightRate + Value * HorizontalAccelelerationRate * GetWorld()->DeltaTimeSeconds, UnderRate, TopRate);
 }
 
-void AFlyRocket::UpdateHorizontalRate(float DeltaTime)
+void AFlyRocket::InertiaHorizontalRate(const float DeltaTime)
 {
-	LeftRate = FMath::Clamp(LeftRate - HorizontalDecelerationRate * GetWorld()->DeltaTimeSeconds, UnderRate, DefaultRate);
-	RightRate = FMath::Clamp(RightRate - HorizontalDecelerationRate * GetWorld()->DeltaTimeSeconds, UnderRate, DefaultRate);
+	LeftRate = FMath::Clamp(LeftRate - HorizontalDecelerationRate * GetWorld()->DeltaTimeSeconds, UnderRate, TopRate);
+	RightRate = FMath::Clamp(RightRate - HorizontalDecelerationRate * GetWorld()->DeltaTimeSeconds, UnderRate, TopRate);
 }
 
 void AFlyRocket::ResetHorizontalRate()
@@ -202,190 +268,105 @@ void AFlyRocket::ResetHorizontalRate()
 	RightRate = UnderRate;
 }
 
-void AFlyRocket::NIMoveLeft(const FInputActionValue& Value)
+
+// ============================================================================= Gearメソッド群 ============================================================================== //
+// ========================================================================================================================================================================== //
+
+void AFlyRocket::ChangeGear(const uint8 Gear)
 {
-	float InputValue = Value.Get<float>();
-
-	if (!bIsRightMoving)
+	if (Gear >= 0 && Gear < MaxGearSpeedList.Num())
 	{
-		bIsLeftMoving = true;
-		MoveLeft(InputValue);
-	}
-}
-
-void AFlyRocket::NIMoveRight(const FInputActionValue& Value)
-{
-	float InputValue = Value.Get<float>();
-
-	if (!bIsLeftMoving)
-	{
-		bIsRightMoving = true;
-		MoveRight(InputValue);
-	}
-}
-
-void AFlyRocket::ComplatedMoveLeft()
-{
-	bIsLeftMoving = false;
-}
-
-void AFlyRocket::ComplatedMoveRight()
-{
-	bIsRightMoving = false;
-}
-
-void AFlyRocket::NIGearChange(const FInputActionValue& Value)
-{
-	// ユーザーから正か負の入力を受け取る
-	float PositiveOrNegative = Value.Get<float>();
-
-	if (PositiveOrNegative > 0)
-	{
-		GearUp();
-	}
-	else
-	{
-		GearDown();
-	}
-
-	switch (CurrentGear)
-	{
-	case AFlyRocket::LOW:
-		UKismetSystemLibrary::PrintString(this, TEXT("LOW"), true, true, FColor::Blue, 2.0f, FName("Gear"));
-		break;
-	case AFlyRocket::NORMAL:
-		UKismetSystemLibrary::PrintString(this, TEXT("NORMAL"), true, true, FColor::Blue, 2.0f, FName("Gear"));
-		break;
-	case AFlyRocket::HIGH:
-		UKismetSystemLibrary::PrintString(this, TEXT("HIGH"), true, true, FColor::Blue, 2.0f, FName("Gear"));
-		break;
-	default:
-		/* 何も行わない */
-		break;
+		CurrentGear = Gear;
+		TargetGearSpeed = MaxGearSpeedList[Gear];
+		GearChangeStartTime = GetWorld()->GetTimeSeconds();
 	}
 }
 
 void AFlyRocket::GearUp()
 {
-	switch (CurrentGear)
-	{
-	case AFlyRocket::LOW:
-		CurrentGear = NORMAL;
-		break;
-	case AFlyRocket::NORMAL:
-		CurrentGear = HIGH;
-		break;
-	case AFlyRocket::HIGH:
-		/* 何も行わない */
-		break;
-	default:
-		/* 何も行わない */
-		break;
-	}
+	ChangeGear(CurrentGear + 1);
 }
 
 void AFlyRocket::GearDown()
 {
-	switch (CurrentGear)
-	{
-	case AFlyRocket::LOW:
-		/* 何も行わない */
-		break;
-	case AFlyRocket::NORMAL:
-		CurrentGear = LOW;
-		break;
-	case AFlyRocket::HIGH:
-		CurrentGear = NORMAL;
-		break;
-	default:
-		/* 何も行わない */
-		break;
-	}
+	ChangeGear(CurrentGear - 1);
 }
 
-void AFlyRocket::Stun()
+void AFlyRocket::LerpGearSpeed(const float DeltaTime)
 {
-	bIsStun = true;
+	// GearChangeからの経過時間
+	const float CurrentTime = GetWorld()->GetTimeSeconds();
+	const float TimeElapsed = CurrentTime - GearChangeStartTime;
 
-	GetWorld()->GetTimerManager().ClearTimer(StunTimer);
-
-	GetWorld()->GetTimerManager().SetTimer
-	(
-		StunTimer,
-		[&]()
-		{
-			bIsStun = false;
-		},
-		StunDuration,
-		false
-	);
-}
-
-void AFlyRocket::VaryingAccelerations(const float DeltaTime)
-{
-	VaryingGearAcceleration(DeltaTime);
-
-	VaryingStunSpeedRate(DeltaTime);
-}
-
-void AFlyRocket::VaryingGearAcceleration(const float DeltaTime)
-{
-	float TargetRate = 0.0f;
-	
-	// 目標のレート値を決める
-	switch (CurrentGear)
+	// 徐々に速度を上げていく
+	if (TimeElapsed < GearChangeDuration)
 	{
-	case AFlyRocket::LOW:
-		TargetRate = GearAccelerationInLow;
-		break;
-	case AFlyRocket::NORMAL:
-		TargetRate = GearAccelerationInNormal;
-		break;
-	case AFlyRocket::HIGH:
-		TargetRate = GearAccelerationInHigh;
-		break;
-	default:
-		TargetRate = 0.0f;
-		break;
-	}
-
-	// 目標のレート値ならば終了
-	if (GearAcceleration == TargetRate)
-	{
-		return;
-	}
-
-	// 目標のレート値になるようデルタタイムを加減算
-	const float VaryingAcceleration = UKismetMathLibrary::SafeDivide(DeltaTime, GearAccelerationVaryingtime);
-	if (GearAcceleration < TargetRate)
-	{
-		GearAcceleration = FMath::Min(GearAcceleration + VaryingAcceleration, TargetRate);
+		// 速度差
+		const float SpeedDiff = TargetGearSpeed - CurrentGearSpeed;
+		// 線形補間
+		const float SpeedChange = (SpeedDiff / GearChangeDuration) * DeltaTime;
+		CurrentGearSpeed += SpeedChange;
 	}
 	else
 	{
-		GearAcceleration = FMath::Max(GearAcceleration - VaryingAcceleration, TargetRate);
+		CurrentGearSpeed = TargetGearSpeed;
 	}
 }
 
-void AFlyRocket::VaryingStunSpeedRate(const float DeltaTime)
+void AFlyRocket::ResetGear()
 {
-	if (!bIsStun && StunSpeedRate < DefaultRate)
-	{
-		StunSpeedRate = FMath::Min(StunSpeedRate + UKismetMathLibrary::SafeDivide(DeltaTime, StunRecoveryDuration), DefaultRate);
-	}
-	else if (bIsStun && StunSpeedRate > UnderRate)
-	{
-		StunSpeedRate = FMath::Max(StunSpeedRate - UKismetMathLibrary::SafeDivide(DeltaTime, StunDuration), UnderRate);
-	}
+	CurrentGear = 0;
+	TargetGearSpeed = MaxGearSpeedList[CurrentGear];
+	CurrentGearSpeed = TargetGearSpeed;
 }
 
-void AFlyRocket::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+
+// ============================================================================= Stunメソッド群 ============================================================================== //
+// ========================================================================================================================================================================== //
+
+void AFlyRocket::Stun()
 {
-	if (!bIsStun)
-	{
-		Stun();
-	}
+	bIsStunned = true;
+	StunStartTime = GetWorld()->GetTimeSeconds();
+	ResetForwardAccelerate();
+	ResetHorizontalRate();
+	ResetGear();
 }
 
+void AFlyRocket::UpdateStunRate(const float DeltaTime)
+{
+	const float CurrentTime = GetWorld()->GetTimeSeconds();
+	const float TimeElapsed = CurrentTime - StunStartTime;
 
+	// スタン状態へ移行
+	float TargetDuration = StunDeclineDuration;
 
+	if (TimeElapsed < TargetDuration)
+	{
+		// スタン状態への移行
+		CurrentStunRate = FMath::Lerp(TopRate, UnderRate, TimeElapsed / StunDeclineDuration);
+		return;
+	}
+
+	// スタン状態を継続
+	TargetDuration = StunDeclineDuration + StunDuration;
+	
+	if (TimeElapsed < TargetDuration)
+	{
+		CurrentStunRate = UnderRate;
+		return;
+	}
+
+	// スタン状態を回復
+	TargetDuration = StunDeclineDuration + StunDuration + StunRecoveryDuration;
+
+	if (TimeElapsed < TargetDuration)
+	{
+		float RecoveryTime = TimeElapsed - StunDeclineDuration - StunDuration;
+		CurrentStunRate = FMath::Lerp(UnderRate, TopRate, RecoveryTime / StunRecoveryDuration);
+		return;
+	}
+
+	CurrentStunRate = TopRate;
+	bIsStunned = false;
+}

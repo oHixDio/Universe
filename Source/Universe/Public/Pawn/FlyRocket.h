@@ -20,51 +20,124 @@ class UNIVERSE_API AFlyRocket : public APawn
 {
 	GENERATED_BODY()
 
+	/*
+		============================== Coreメンバ群 ==============================
+	*/
+	// ===== メンバフィールド ===== //
 private:
-	enum EGearState : uint8
-	{
-		LOW,NORMAL,HIGH,
-	};
-
-private:
+	/*
+		ロケットの機体の相対位置の減点
+		BodyRootの相対位置を変動させることで左右移動を行う。
+	*/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USceneComponent> BodyRoot{ nullptr };
 
+	/*
+		機体の先端
+	*/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStaticMeshComponent> BodyFirst{ nullptr };
 
+	/*
+		機体の中部
+	*/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStaticMeshComponent> BodySecond{ nullptr };
 
+	/*
+		機体の後端
+	*/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStaticMeshComponent> BodyThird{ nullptr };
 
+	/*
+		機体の当たり判定を得る目的
+	*/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCapsuleComponent> CollisionComponent{ nullptr };
 
+	/*
+		デバッグ用の、横移動範囲表示右方向矢印
+	*/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UArrowComponent> DebugRightArrow{ nullptr };
 
+	/*
+		デバッグ用の、横移動範囲表示左方向矢印
+	*/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Component, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UArrowComponent> DebugLeftArrow{ nullptr };
 
+	/*
+		
+	*/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USpringArmComponent> CameraBoom{ nullptr };
 
+	/*
+	
+	*/
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCameraComponent> FollowCamera{ nullptr };
 
+	// ===== メンバメソッド ===== //
+public:
+	AFlyRocket();
+
+	virtual void Tick(float DeltaTime) override;
+
+	/*
+		プレイヤー入力機構をバインドするためにオーバーライド
+	*/
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+protected:
+	virtual void BeginPlay() override;
+
+	/*
+		コリジョンのオーバーラップイベントにバインドする関数。
+	*/
+	UFUNCTION()
+	void OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+
+	/*
+		============================== Inputメンバ群 ==============================
+	*/
+	// ===== メンバフィールド ===== //
+private:
+	/*
+		
+	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputMappingContext> FlyRocketMappingContext{ nullptr };
 
+	/*
+		
+	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UInputAction> MoveLeftAction{ nullptr };
+	TObjectPtr<UInputAction> MoveHorizontalAction{ nullptr };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UInputAction> MoveRightAction{ nullptr };
+	/*
 
+	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> GearChangeAction{ nullptr };
+
+	// ===== メンバメソッド ===== //
+private:
+	/*
+		プレイヤーからの入力を受け取り、FlyRocketの左右移動を行う。
+		入力値はfloatで、マイナスが左方向、プラスが右方向に移動する。
+	*/
+	void NIMoveHorizontal(const FInputActionValue& Value);
+
+	/*
+	* 
+		プレイヤーからの入力を受け取り、FlyRocketのGearを変える。
+		入力値はfloatで、マイナスがGearDown()、プラスがGearUp()を実行する。
+	*/
+	void NIGearChange(const FInputActionValue& Value);
 
 
 	/*
@@ -72,17 +145,26 @@ private:
 	*/
 	// ===== メンバフィールド ===== //
 private:
+	/*
+		ロケットの移動状態を表す
+	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move", meta = (AllowPrivateAccess = "true"))
 	bool bIsMoving{ false };
 
-	float DefaultRate{ 1.0f };
+	/*
+		割合値100%
+	*/
+	float TopRate{ 1.0f };
 
+	/*
+		割合値0％
+	*/
 	float UnderRate{ 0.0f };
 
 	// ===== メンバメソッド ===== //
 private:
 	/*
-		ロケットの移動状態を変更するメソッド
+		ロケットの移動状態を変更する。
 	*/
 	void SetIsMoving(bool IsMoving);
 
@@ -92,14 +174,21 @@ private:
 	*/
 	// ===== メンバフィールド ===== //
 private:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Forward", meta = (AllowPrivateAccess = "true"))
+	/*
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move|Forward", meta = (AllowPrivateAccess = "true"))
 	float ForwardSpeed{ 100.0f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Forward", meta = (AllowPrivateAccess = "true"))
-	float ForwardAccelerationAmount{ 10.0f };
+	/*
+		加速量
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move|Forward", meta = (AllowPrivateAccess = "true"))
+	float ForwardAdditionalSpeedAmount{ 10.0f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Forward", meta = (AllowPrivateAccess = "true"))
-	float CurrentForwardAcceleration{ 0.0f };
+	/*
+		現在の総加速量	
+	*/
+	float TotalForwardAdditionalSpeed{ 0.0f };
 
 	// ===== メンバメソッド ===== //
 private:
@@ -107,7 +196,7 @@ private:
 		Z方向を前方とした前進移動を行う。
 		前進移動量はForwardSpeedに格納されている値により決定される
 
-		このメソッドはTickにて処理される
+		Tickにて処理される
 	*/
 	void MoveForward(const float DeltaTime);
 
@@ -123,9 +212,10 @@ private:
 	void ResetForwardAccelerate();
 
 	/*
-	
+		前進速度に影響する速度を取得する
 	*/
-	float GetAffectForwardSpeedRate();
+	float GetAffectForwardSpeed();
+
 
 	/*
 		============================== Horizontalメンバ群 ==============================
@@ -133,22 +223,37 @@ private:
 private:
 	// ===== メンバフィールド ===== //
 
+	/*
+		左右移動速度。Y軸
+	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Horizontal", meta = (AllowPrivateAccess = "true"))
 	float HorizontalSpeed{ 100.0f };
 
+	/*
+		左右移動速度が減少する値
+	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Horizontal", meta = (AllowPrivateAccess = "true"))
 	float HorizontalDecelerationRate{ 0.5f };
 
+	/*
+		左右移動速度が上昇する値
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Horizontal", meta = (AllowPrivateAccess = "true"))
+	float HorizontalAccelelerationRate{ 0.5f };
+
+	/*
+	
+	*/
 	float LeftRate{ 0.0f };
 
+	/*
+	
+	*/
 	float RightRate{ 0.0f };
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Move | Horizontal", meta = (AllowPrivateAccess = "true"))
-	bool bIsLeftMoving{ false };
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Move | Horizontal", meta = (AllowPrivateAccess = "true"))
-	bool bIsRightMoving{ false };
-
+	/*
+		左右にどれだけ移動できるかのスカラー値
+	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Horizontal", meta = (AllowPrivateAccess = "true"))
 	float HorizontalMoveOffset{ 550.0f };
 
@@ -156,124 +261,138 @@ private:
 	/*
 		Y軸を基準とした水平移動を行う。
 		この関数は、Tick関数にて常に実行されているが、内部の値によっては移動を行わない。
-		この関数はTickにて処理される
+		Tickにて処理される
 		SLAP:中水準
 	*/
 	void MoveHorizontal(const float DeltaTime);
 
 	/*
+		左の移動値を上昇させる
 	*/
 	void MoveLeft(const float Value);
 
 	/*
+		右の移動値を上昇させる
 	*/
 	void MoveRight(const float Value);
 
 	/*
+		左右移動の慣性を計算する
 	*/
-	void UpdateHorizontalRate(float DeltaTime);
+	void InertiaHorizontalRate(const float DeltaTime);
 
 	/*
+		左右移動値を0にする。
 	*/
 	void ResetHorizontalRate();
 
-	float GearAcceleration{ 1.0f };
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear", meta = (AllowPrivateAccess = "true"))
-	float GearAccelerationVaryingtime{ 0.5f };
-
-	EGearState CurrentGear{ LOW };
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear", meta = (AllowPrivateAccess = "true"))
-	float GearAccelerationInLow{ 0.8f };
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear", meta = (AllowPrivateAccess = "true"))
-	float GearAccelerationInNormal{ 1.0f };
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Gear", meta = (AllowPrivateAccess = "true"))
-	float GearAccelerationInHigh{ 1.2f };
-
-
-	float StunSpeedRate{ 1.0f };
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Stun", meta = (AllowPrivateAccess = "true"))
-	float StunDuration{ 0.3f };
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Stun", meta = (AllowPrivateAccess = "true"))
-	float StunRecoveryDuration{ 2.0f };
-
-	float SpeedUpRate{ 1.0f };
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | SpeedUp", meta = (AllowPrivateAccess = "true"))
-	float SpeedUpRateMax{ 1.2f };
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | SpeedUp", meta = (AllowPrivateAccess = "true"))
-	float SpeedUpRequiredTime{ 2.0f };
-
-	float SpeedUpJudgeTime{ 0.0f };
-
-	FTimerHandle StunTimer;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = State, meta = (AllowPrivateAccess = "true"))
-	bool bIsStun{ false };
-
-
-
-
-public:
-	AFlyRocket();
-
-	virtual void Tick(float DeltaTime) override;
-
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
-protected:
-	virtual void BeginPlay() override;
-
-
+	/*
+	============================== Gearメンバ群 ==============================
+	*/
+	// ===== メンバフィールド ===== //
 private:
+	/*
+		現在のギアを表す
+	*/
+	uint8 CurrentGear{ 0 };
+
+	/*
 	
+	*/
+	float CurrentGearSpeed{ 0.0f };
+
+	/*
+		各ギアに対応した、目標値
+	*/
+	float TargetGearSpeed{ 0.0f };
+
+	/*
+		ギアが変更されたときのタイム
+	*/
+	float GearChangeStartTime{ 0.0f };
 
 
 	/*
-		PlayerControllerの入力によって、機体を左に移動させる。
+		ギア変更後、速度を目標値にするまでに掛かる時間
 	*/
-	void NIMoveLeft(const FInputActionValue& Value);
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Gear", meta = (AllowPrivateAccess = "true"))
+	float GearChangeDuration{ 0.5f };
 
 	/*
-		PlayerControllerの入力によって、機体を右に移動させる。
+		各ギアの速度のリスト
 	*/
-	void NIMoveRight(const FInputActionValue& Value);
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Move | Gear", meta = (AllowPrivateAccess = "true"), EditFixedSize)
+	TArray<float> MaxGearSpeedList{ 0.0f, 200.0f, 400.0f };
 
+	// ===== メンバメソッド ===== //
+private:
 	/*
-		PlayerControllerによる左移動入力を終了したときに発行される
+		引数に対応したギア速度に変更する
 	*/
-	void ComplatedMoveLeft();
-
-	/*
-		PlayerControllerによる右移動入力を終了したときに発行される
-	*/
-	void ComplatedMoveRight();
-
-	/*
-		Gearを変える
-		アップダウンは、入力値の正負(真偽)で判定される。
-		SLAP:高水準
-	*/
-	void NIGearChange(const FInputActionValue& Value);
+	void ChangeGear(const uint8 Gear);
 
 	/*
 		Gearを上げる
-		SLAP:中水準
 	*/
 	void GearUp();
 
 	/*
 		Gearを下げる
-		SLAP:中水準
 	*/
 	void GearDown();
 
+	/*
+		ギア速度を目標値に線形補間で変更する
+	*/
+	void LerpGearSpeed(const float DeltaTime);
+
+	/*
+		ギアをデフォルトにする
+	*/
+	void ResetGear();
+
+
+	/*
+	============================== Stunメンバ群 ==============================
+	*/
+	// ===== メンバフィールド ===== //
+private:
+	/*
+		スタン状態の時間
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Stun", meta = (AllowPrivateAccess = "true"))
+	float StunDuration{ 1.0f };
+
+	/*
+		スタン状態に至るまでの時間
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Stun", meta = (AllowPrivateAccess = "true"))
+	float StunDeclineDuration{ 0.2f };
+
+	/*
+		スタン状態から回復するまでの時間	
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Numeric | Stun", meta = (AllowPrivateAccess = "true"))
+	float StunRecoveryDuration{ 1.0f };
+
+	/*
+		
+	*/
+	float CurrentStunRate{ 1.0f };
+
+	/*
+	
+	*/
+	bool bIsStunned{ false };
+
+	/*
+	
+	*/
+	float StunStartTime{ 0.0f };
+
+	// ===== メンバメソッド ===== //
+private:
 	/*
 		アステロイド衝突時、スタンを発生させ、一定秒数間スピードが0になる。
 		スタンタイムをスタートさせる。
@@ -282,26 +401,7 @@ private:
 	void Stun();
 
 	/*
-		水平移動レートを変動させる
-		SLAP:中水準
+		スタン値を変動させる
 	*/
-	void VaryingAccelerations(const float DeltaTime);
-
-	/*
-		ギア速度レートを変動させる
-		SLAP:低水準
-	*/
-	void VaryingGearAcceleration(const float DeltaTime);
-
-	/*
-		スタン速度レートを変動させる
-		SLAP:低水準
-	*/
-	void VaryingStunSpeedRate(const float DeltaTime);
-
-	/*
-		コリジョンのオーバーラップイベントにバインドする関数。
-	*/
-	UFUNCTION()
-	void OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	void UpdateStunRate(const float DeltaTime);
 };

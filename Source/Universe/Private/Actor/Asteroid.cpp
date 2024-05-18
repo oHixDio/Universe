@@ -11,14 +11,12 @@ AAsteroid::AAsteroid()
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>("Root Mesh");
 	RootComponent = Mesh;
 
-	// CollisionArea èâä˙ê›íË
-	CollisionArea = CreateDefaultSubobject<USphereComponent>("Collision Component");
-	CollisionArea->SetupAttachment(RootComponent);
-
-	CollisionArea->OnComponentBeginOverlap.AddDynamic(this, &AAsteroid::OnBeginOverlap);
-
 	PrimaryActorTick.bCanEverTick = true;
 
+	if (Tags.Contains("Asteroid"))
+	{
+		Tags.Add("Asteroid");
+	}
 }
 
 void AAsteroid::BeginPlay()
@@ -30,13 +28,4 @@ void AAsteroid::BeginPlay()
 void AAsteroid::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-}
-
-void AAsteroid::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	if (Cast<APawn>(OtherActor))
-	{
-		Destroy();
-	}
 }
